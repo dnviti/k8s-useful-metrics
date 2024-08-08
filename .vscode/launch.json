@@ -1,0 +1,47 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Get-Nodes",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "-t",
+                "get-nodes",
+                "-o",
+                "csv"
+            ]
+        },
+        {
+            "name": "Get-Resourcequotas",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "-t",
+                "get-resourcequotas",
+                "-o",
+                "csv"
+            ]
+        },
+        {
+            "name": "Get-Top",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "-t",
+                "get-top",
+                "-o",
+                "csv"
+            ]
+        }
+    ]
+}

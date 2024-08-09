@@ -147,6 +147,43 @@ def get_top(output_format):
     headers = "role,node,ram_mi,cpu_m"
     process_output(output_format, headers, data)
 
+def get_persistent_volumes(output_format):
+    # Mapping of access modes to their abbreviations
+    access_mode_map = {
+        "ReadWriteOnce": "RWO",
+        "ReadOnlyMany": "ROX",
+        "ReadWriteMany": "RWX",
+        "ReadWriteOncePod": "RWOP"  # For Kubernetes versions that support this mode
+    }
+    
+    # Fetch PVCs across all namespaces
+    pvc_output = run_command("kubectl get pvc --all-namespaces -o json")
+    pv_output = run_command("kubectl get pv -o json")
+    
+    pvcs = json.loads(pvc_output)
+    pvs = json.loads(pv_output)
+    
+    pv_map = {pv['metadata']['name']: pv for pv in pvs['items']}
+    
+    data = []
+    
+    for pvc in pvcs['items']:
+        namespace = pvc['metadata']['namespace']
+        pvc_name = pvc['metadata']['name']
+        volume_name = pvc['spec']['volumeName']
+        access_modes = ",".join([access_mode_map.get(mode, mode) for mode in pvc['spec']['accessModes']])
+        
+        # Extract NFS path if present in the PV
+        pv = pv_map.get(volume_name, {})
+        pv_name = pv.get('metadata', {}).get('name', '-')
+        nfs_path = pv.get('spec', {}).get('nfs', {}).get('path', '-')
+        
+        # Collecting the information to match the format in the screenshot
+        data.append((namespace, pvc_name, pv_name, access_modes, nfs_path))
+    
+    headers = "Namespace,Pvc,Volume,Access Modes,Path"
+    process_output(output_format, headers, data)
+
 if __name__ == "__main__":
     if len(sys.argv) != 5 or sys.argv[1] not in ("--task", "-t") or sys.argv[3] not in ("--output", "-o"):
         print_usage()
@@ -165,6 +202,8 @@ if __name__ == "__main__":
         get_resourcequotas(output_format)
     elif task == "get-top":
         get_top(output_format)
+    elif task == "get-pvcs":
+        get_persistent_volumes(output_format)
     else:
         print_usage()
         sys.exit(1)

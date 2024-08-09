@@ -3,16 +3,23 @@ import sys
 import json
 
 def print_usage():
-    print("Usage: script.py --task|-t <get-nodes|get-resourcequotas|get-top|get-pvcs> --output|-o <yaml|json|csv>")
+    print("Usage: script.py --task|-t <get-nodes|get-resourcequotas|get-top|get-pvcs> --output|-o <yaml|json|csv> [--context|-c <context-name>]")
 
 def run_command(cmd):
-    # Compatible with older versions of Python
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     stdout, stderr = process.communicate()
     if process.returncode != 0:
         print(stderr)
         sys.exit(1)
     return stdout.strip()
+
+def switch_context(context):
+    if context:
+        print("Switching to context: {}".format(context))
+        run_command("kubectl config use-context {}".format(context))
+    else:
+        context = run_command("kubectl config current-context")
+        print("Using current context: {}".format(context))
 
 def get_node_roles():
     output = run_command("kubectl get nodes -o json")
@@ -183,16 +190,29 @@ def get_persistent_volumes(output_format):
     process_output(output_format, headers, data)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 5 or sys.argv[1] not in ("--task", "-t") or sys.argv[3] not in ("--output", "-o"):
+    context = None
+
+    if len(sys.argv) < 5:
         print_usage()
         sys.exit(1)
 
-    task = sys.argv[2]
-    output_format = sys.argv[4]
+    task = None
+    output_format = None
 
-    if output_format not in ("yaml", "json", "csv"):
+    for i in range(1, len(sys.argv)):
+        if sys.argv[i] in ("--task", "-t") and i + 1 < len(sys.argv):
+            task = sys.argv[i + 1]
+        elif sys.argv[i] in ("--output", "-o") and i + 1 < len(sys.argv):
+            output_format = sys.argv[i + 1]
+        elif sys.argv[i] in ("--context", "-c") and i + 1 < len(sys.argv):
+            context = sys.argv[i + 1]
+
+    if not task or not output_format or output_format not in ("yaml", "json", "csv"):
         print_usage()
         sys.exit(1)
+
+    # Switch context before running any tasks
+    switch_context(context)
 
     if task == "get-nodes":
         get_nodes(output_format)

@@ -3,14 +3,16 @@ import sys
 import json
 
 def print_usage():
-    print("Usage: script.py --task|-t <get-nodes|get-resourcequotas|get-top> --output|-o <yaml|json|csv>")
+    print("Usage: script.py --task|-t <get-nodes|get-resourcequotas|get-top|get-pvcs> --output|-o <yaml|json|csv>")
 
 def run_command(cmd):
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(result.stderr)
+    # Compatible with older versions of Python
+    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    stdout, stderr = process.communicate()
+    if process.returncode != 0:
+        print(stderr)
         sys.exit(1)
-    return result.stdout.strip()
+    return stdout.strip()
 
 def get_node_roles():
     output = run_command("kubectl get nodes -o json")
@@ -42,7 +44,7 @@ def convert_to_yaml(headers, data):
     for item in data:
         yaml_lines.append("-")
         for key, value in zip(keys, item):
-            yaml_lines.append(f"  {key}: {value}")
+            yaml_lines.append("  {key}: {value}".format(key=key, value=value))
     return "\n".join(yaml_lines)
 
 def process_output(output_format, headers, data):
@@ -66,15 +68,15 @@ def get_nodes(output_format):
         memory = item['status']['capacity']['memory']
         memory_gb = int(memory.rstrip('Ki')) // 1024 // 1024
         role = roles[name]
-        data.append((role, name, f"{memory_gb}Gi", cpu))
+        data.append((role, name, "{memory_gb}Gi".format(memory_gb=memory_gb), cpu))
         total_ram += memory_gb
         total_cpu += int(cpu)
         if role == "Worker":
             worker_ram += memory_gb
             worker_cpu += int(cpu)
 
-    data.append(("Somma Totale", "", f"{total_ram}Gi", total_cpu))
-    data.append(("Somma Worker", "", f"{worker_ram}Gi", worker_cpu))
+    data.append(("Somma Totale", "", "{total_ram}Gi".format(total_ram=total_ram), total_cpu))
+    data.append(("Somma Worker", "", "{worker_ram}Gi".format(worker_ram=worker_ram), worker_cpu))
 
     headers = "role,node,ram_gb,cpu"
     process_output(output_format, headers, data)
@@ -109,7 +111,7 @@ def get_resourcequotas(output_format):
         role = roles[node]
         allocated_ram_gb = mem_usage[node] // 1024 if node in mem_usage else 0
         allocated_cpu_millicores = cpu_usage[node]
-        data.append((role, node, f"{allocated_ram_gb}Gi", allocated_cpu_millicores))
+        data.append((role, node, "{allocated_ram_gb}Gi".format(allocated_ram_gb=allocated_ram_gb), allocated_cpu_millicores))
 
     headers = "role,node,allocated_ram_gb,allocated_cpu_millicores"
     process_output(output_format, headers, data)
@@ -128,7 +130,7 @@ def get_top(output_format):
         ram = int(item['usage']['memory'].rstrip('Ki')) // 1024
         role = roles.get(node, "Unknown")
 
-        data.append((role, node, f"{ram}Mi", f"{cpu}m"))
+        data.append((role, node, "{ram}Mi".format(ram=ram), "{cpu}m".format(cpu=cpu)))
         total_ram += ram
         total_cpu += cpu
 
@@ -141,22 +143,20 @@ def get_top(output_format):
     total_ram_gb = total_ram // 1024
     worker_ram_gb = worker_ram // 1024
 
-    data.append(("Somma Totale", "", f"{total_ram_gb}Gi", f"{total_cpu}m"))
-    data.append(("Somma Worker", "", f"{worker_ram_gb}Gi", f"{worker_cpu}m"))
+    data.append(("Somma Totale", "", "{total_ram_gb}Gi".format(total_ram_gb=total_ram_gb), "{total_cpu}m".format(total_cpu=total_cpu)))
+    data.append(("Somma Worker", "", "{worker_ram_gb}Gi".format(worker_ram_gb=worker_ram_gb), "{worker_cpu}m".format(worker_cpu=worker_cpu)))
 
     headers = "role,node,ram_mi,cpu_m"
     process_output(output_format, headers, data)
 
 def get_persistent_volumes(output_format):
-    # Mapping of access modes to their abbreviations
     access_mode_map = {
         "ReadWriteOnce": "RWO",
         "ReadOnlyMany": "ROX",
         "ReadWriteMany": "RWX",
-        "ReadWriteOncePod": "RWOP"  # For Kubernetes versions that support this mode
+        "ReadWriteOncePod": "RWOP"
     }
     
-    # Fetch PVCs across all namespaces
     pvc_output = run_command("kubectl get pvc --all-namespaces -o json")
     pv_output = run_command("kubectl get pv -o json")
     
@@ -173,12 +173,10 @@ def get_persistent_volumes(output_format):
         volume_name = pvc['spec']['volumeName']
         access_modes = ",".join([access_mode_map.get(mode, mode) for mode in pvc['spec']['accessModes']])
         
-        # Extract NFS path if present in the PV
         pv = pv_map.get(volume_name, {})
         pv_name = pv.get('metadata', {}).get('name', '-')
         nfs_path = pv.get('spec', {}).get('nfs', {}).get('path', '-')
         
-        # Collecting the information to match the format in the screenshot
         data.append((namespace, pvc_name, pv_name, access_modes, nfs_path))
     
     headers = "Namespace,Pvc,Volume,Access Modes,Path"

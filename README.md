@@ -15,7 +15,7 @@ This script is designed to interact with your Kubernetes cluster, providing deta
 ### General Command Structure
 
 ```bash
-python script.py --task <task-name> --output <format> [--context <context-name>] [--nfs-level <level>] [--debug <level>] [--parameter <key=value>]
+python get_info.py --task <task-name> --output <format> [--context <context-name>] [--nfs-level <level>] [--debug <level>] [--parameter <key=value>]
 ```
 
 ### Tasks
@@ -45,7 +45,7 @@ python script.py --task <task-name> --output <format> [--context <context-name>]
 #### 1. Get Node Details in JSON Format
 
 ```bash
-python script.py --task get-nodes --output json
+python get_info.py --task get-nodes --output json
 ```
 
 This command fetches details about all nodes in the cluster and outputs the information in JSON format.
@@ -53,7 +53,7 @@ This command fetches details about all nodes in the cluster and outputs the info
 #### 2. Summarize Resource Quotas in YAML Format
 
 ```bash
-python script.py --task get-resourcequotas --output yaml
+python get_info.py --task get-resourcequotas --output yaml
 ```
 
 This command gathers and summarizes resource quotas from all pods across all namespaces, outputting the data in YAML format.
@@ -61,7 +61,7 @@ This command gathers and summarizes resource quotas from all pods across all nam
 #### 3. Retrieve Top Metrics with Detailed Logging
 
 ```bash
-python script.py --task get-top --output csv --debug INFO
+python get_info.py --task get-top --output csv --debug INFO
 ```
 
 This command retrieves real-time CPU and memory usage metrics for each node, outputs the data in CSV format, and logs all information-level messages.
@@ -69,7 +69,7 @@ This command retrieves real-time CPU and memory usage metrics for each node, out
 #### 4. List Persistent Volume Claims in CSV Format
 
 ```bash
-python script.py --task get-pvcs --output csv
+python get_info.py --task get-pvcs --output csv
 ```
 
 This command lists all PVCs in the cluster along with their associated NFS paths and outputs the data in CSV format.
@@ -77,7 +77,7 @@ This command lists all PVCs in the cluster along with their associated NFS paths
 #### 5. Check NFS Storage Usage for Root NFS Directories
 
 ```bash
-python script.py --task check-nfs --output json --nfs-level 0
+python get_info.py --task check-nfs --output json --nfs-level 0
 ```
 
 This command mounts the root NFS directories as specified by the Persistent Volumes, checks their storage usage, and outputs the results in JSON format.
@@ -85,7 +85,7 @@ This command mounts the root NFS directories as specified by the Persistent Volu
 #### 6. Check NFS Storage Usage for Sub-Directories
 
 ```bash
-python script.py --task check-nfs --output yaml --nfs-level 1 --debug WARN
+python get_info.py --task check-nfs --output yaml --nfs-level 1 --debug WARN
 ```
 
 This command mounts each NFS path one level deep, checks storage usage, and outputs the results in YAML format. Warnings and errors during execution are logged.
@@ -93,7 +93,7 @@ This command mounts each NFS path one level deep, checks storage usage, and outp
 #### 7. Get Kubernetes Cluster Info with Custom Parameters
 
 ```bash
-python script.py --task get-k8s-info --output json --parameter "Environment=Production" --parameter "Owner=DevOps"
+python get_info.py --task get-k8s-info --output json --parameter "Environment=Production" --parameter "Owner=DevOps"
 ```
 
 This command retrieves basic Kubernetes cluster information and includes custom parameters in the output, formatted in JSON.

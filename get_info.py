@@ -5,19 +5,22 @@ import os
 import shutil
 import logging
 
+# Function to print the usage instructions for the script
 def print_usage():
     print("Usage: script.py --task|-t <get-nodes|get-resourcequotas|get-top|get-pvcs|check-nfs|get-k8s-info> --output|-o <yaml|json|csv> [--context|-c <context-name>] [--nfs-level|-l <level>] [--debug|-d <ERROR|WARN|INFO|DEBUG>] [--parameter|-p <key=value>]")
 
+# Function to run a shell command and capture its output
 def run_command(cmd):
     logging.debug(f"Executing command: {cmd}")
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     stdout, stderr = process.communicate()
-    if process.returncode != 0:
+    if process.returncode != 0:  # If the command fails, log the error and exit
         logging.error(f"Command failed: {stderr}")
         sys.exit(1)
     logging.debug(f"Command output: {stdout}")
-    return stdout.strip()
+    return stdout.strip()  # Return the output, stripped of any leading/trailing whitespace
 
+# Function to switch the Kubernetes context if provided, or use the current context
 def switch_context(context):
     if context:
         logging.info(f"Switching to context: {context}")
@@ -26,6 +29,7 @@ def switch_context(context):
         context = run_command("kubectl config current-context")
         logging.info(f"Using current context: {context}")
 
+# Function to retrieve the roles of Kubernetes nodes
 def get_node_roles():
     output = run_command("kubectl get nodes -o json")
     nodes = json.loads(output)
@@ -39,17 +43,20 @@ def get_node_roles():
             roles[node_name] = "Worker"
     return roles
 
+# Function to convert data into CSV format
 def convert_to_csv(headers, data):
     lines = [headers]
     for item in data:
         lines.append(",".join(str(i) for i in item))
     return "\n".join(lines)
 
+# Function to convert data into JSON format
 def convert_to_json(headers, data):
     keys = headers.split(',')
     json_data = [dict(zip(keys, item)) for item in data]
     return json.dumps(json_data, indent=2)
 
+# Function to convert data into YAML format
 def convert_to_yaml(headers, data):
     keys = headers.split(',')
     yaml_lines = []
@@ -59,6 +66,7 @@ def convert_to_yaml(headers, data):
             yaml_lines.append(f"  {key}: {value}")
     return "\n".join(yaml_lines)
 
+# Function to process and print the output in the specified format
 def process_output(output_format, headers, data):
     if output_format == "yaml":
         logging.info("Converting data to YAML format")
@@ -70,6 +78,7 @@ def process_output(output_format, headers, data):
         logging.info("Converting data to CSV format")
         print(convert_to_csv(headers, data))
 
+# Function to retrieve and process basic Kubernetes cluster information
 def get_k8s_info(output_format, custom_params):
     logging.info("Fetching Kubernetes cluster information")
     version = run_command("kubectl version --output=json")
@@ -94,6 +103,7 @@ def get_k8s_info(output_format, custom_params):
     headers = "Parameter,Value"
     process_output(output_format, headers, data)
 
+# Function to retrieve and process node information in the cluster
 def get_nodes(output_format):
     logging.info("Fetching nodes")
     roles = get_node_roles()
@@ -106,7 +116,7 @@ def get_nodes(output_format):
         name = item['metadata']['name']
         cpu = item['status']['capacity']['cpu']
         memory = item['status']['capacity']['memory']
-        memory_gb = int(memory.rstrip('Ki')) // 1024 // 1024
+        memory_gb = int(memory.rstrip('Ki')) // 1024 // 1024  # Convert memory from Ki to Gi
         role = roles[name]
         data.append((role, name, f"{memory_gb}Gi", cpu))
         total_ram += memory_gb
@@ -121,6 +131,7 @@ def get_nodes(output_format):
     headers = "role,node,ram_gb,cpu"
     process_output(output_format, headers, data)
 
+# Function to retrieve and process resource quota usage in the cluster
 def get_resourcequotas(output_format):
     logging.info("Fetching resource quotas")
     roles = get_node_roles()
@@ -173,6 +184,7 @@ def get_resourcequotas(output_format):
     headers = "role,node,allocated_ram_gb,allocated_cpu_millicores"
     process_output(output_format, headers, data)
 
+# Function to retrieve and process top metrics (resource usage) in the cluster
 def get_top(output_format):
     logging.info("Fetching top metrics")
     roles = get_node_roles()
@@ -219,6 +231,7 @@ def get_top(output_format):
     headers = "Ruolo,Nodo,Ram,Ram %,Cpu,Cpu %"
     process_output(output_format, headers, data)
 
+# Function to retrieve and process information about Persistent Volumes in the cluster
 def get_persistent_volumes(output_format):
     logging.info("Fetching persistent volumes")
     access_mode_map = {
@@ -253,10 +266,11 @@ def get_persistent_volumes(output_format):
     headers = "Namespace,Pvc,Volume,Access Modes,Path"
     process_output(output_format, headers, data)
 
+# Function to check NFS storage usage for Persistent Volumes in the cluster
 def check_nfs_storage_usage(output_format, nfs_level):
     mount_dir = "/mnt/sizecheck"
     
-    if not os.path.exists(mount_dir):
+    if not os.path.exists(mount_dir):  # Create the mount directory if it doesn't exist
         logging.debug(f"Creating mount directory: {mount_dir}")
         os.makedirs(mount_dir)
     
@@ -296,15 +310,16 @@ def check_nfs_storage_usage(output_format, nfs_level):
     headers = "NFS Server,NFS Path,Size,Used,Available,Percent Used"
     process_output(output_format, headers, data)
 
-    shutil.rmtree(mount_dir)
+    shutil.rmtree(mount_dir)  # Remove the temporary mount directory after use
 
+# Main execution block: parses command-line arguments and executes the specified task
 if __name__ == "__main__":
     context = None
-    nfs_level = 0  # Default level is 0
+    nfs_level = 0  # Default NFS level is 0
     debug_level = "ERROR"  # Default logging level is ERROR
     custom_params = {}
 
-    if len(sys.argv) < 5:
+    if len(sys.argv) < 5:  # If not enough arguments are provided, show usage and exit
         print_usage()
         sys.exit(1)
 
@@ -337,6 +352,7 @@ if __name__ == "__main__":
     # Switch context before running any tasks
     switch_context(context)
 
+    # Execute the appropriate function based on the specified task
     if task == "get-nodes":
         get_nodes(output_format)
     elif task == "get-resourcequotas":
@@ -350,8 +366,5 @@ if __name__ == "__main__":
     elif task == "get-k8s-info":
         get_k8s_info(output_format, custom_params)
     else:
-        print_usage()
+        print_usage()  # If an unknown task is provided, show usage and exit
         sys.exit(1)
-
-
-# resourcequotas somme totali e cpu in core

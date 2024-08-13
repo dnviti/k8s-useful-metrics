@@ -6,7 +6,7 @@ import shutil
 import logging
 
 def print_usage():
-    print("Usage: script.py --task|-t <get-nodes|get-resourcequotas|get-top|get-pvcs|check-nfs> --output|-o <yaml|json|csv> [--context|-c <context-name>] [--nfs-level|-l <level>] [--debug|-d <ERROR|WARN|INFO|DEBUG>]")
+    print("Usage: script.py --task|-t <get-nodes|get-resourcequotas|get-top|get-pvcs|check-nfs|get-k8s-info> --output|-o <yaml|json|csv> [--context|-c <context-name>] [--nfs-level|-l <level>] [--debug|-d <ERROR|WARN|INFO|DEBUG>] [--parameter|-p <key=value>]")
 
 def run_command(cmd):
     logging.debug(f"Executing command: {cmd}")
@@ -69,6 +69,30 @@ def process_output(output_format, headers, data):
     elif output_format == "csv":
         logging.info("Converting data to CSV format")
         print(convert_to_csv(headers, data))
+
+def get_k8s_info(output_format, custom_params):
+    logging.info("Fetching Kubernetes cluster information")
+    version = run_command("kubectl version --output=json")
+    nodes = run_command("kubectl get nodes -o wide")
+    namespaces = run_command("kubectl get namespaces -o json")
+
+    version_info = json.loads(version)
+    server_version = version_info.get('serverVersion', {})
+    version_str = f"{server_version.get('major', 'N/A')}.{server_version.get('minor', 'N/A')}"
+
+    namespaces_info = json.loads(namespaces)
+    
+    data = [
+        ("Kubernetes Version", version_str),
+        ("Node Count", len(nodes.splitlines()) - 1),  # Subtract header line
+        ("Namespace Count", len(namespaces_info.get('items', []))),
+    ]
+    
+    for key, value in custom_params.items():
+        data.append((key, value))
+    
+    headers = "Parameter,Value"
+    process_output(output_format, headers, data)
 
 def get_nodes(output_format):
     logging.info("Fetching nodes")
@@ -250,6 +274,7 @@ if __name__ == "__main__":
     context = None
     nfs_level = 0  # Default level is 0
     debug_level = "ERROR"  # Default logging level is ERROR
+    custom_params = {}
 
     if len(sys.argv) < 5:
         print_usage()
@@ -269,6 +294,10 @@ if __name__ == "__main__":
             nfs_level = int(sys.argv[i + 1])
         elif sys.argv[i] in ("--debug", "-d") and i + 1 < len(sys.argv):
             debug_level = sys.argv[i + 1].upper()
+        elif sys.argv[i].startswith("-p:"):
+            param = sys.argv[i][3:]
+            key, value = param.split("=", 1)
+            custom_params[key] = value
 
     # Set up logging based on the debug level, default is ERROR
     logging.basicConfig(level=getattr(logging, debug_level, "ERROR"), format='%(asctime)s - %(levelname)s - %(message)s')
@@ -290,6 +319,8 @@ if __name__ == "__main__":
         get_persistent_volumes(output_format)
     elif task == "check-nfs":
         check_nfs_storage_usage(output_format, nfs_level)
+    elif task == "get-k8s-info":
+        get_k8s_info(output_format, custom_params)
     else:
         print_usage()
         sys.exit(1)

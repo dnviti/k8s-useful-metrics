@@ -128,6 +128,9 @@ def get_resourcequotas(output_format):
     pods = json.loads(output)
     cpu_usage, mem_usage = {}, {}
 
+    total_cpu_millicores, total_ram_gb = 0, 0
+    worker_cpu_millicores, worker_ram_gb = 0, 0
+
     for item in pods['items']:
         node = item['spec']['nodeName']
         for container in item['spec']['containers']:
@@ -152,7 +155,20 @@ def get_resourcequotas(output_format):
         role = roles[node]
         allocated_ram_gb = mem_usage[node] // 1024 if node in mem_usage else 0
         allocated_cpu_millicores = cpu_usage[node]
+        
+        # Accumulate totals
+        total_cpu_millicores += allocated_cpu_millicores
+        total_ram_gb += allocated_ram_gb
+
+        if role == "Worker":
+            worker_cpu_millicores += allocated_cpu_millicores
+            worker_ram_gb += allocated_ram_gb
+
         data.append((role, node, f"{allocated_ram_gb}Gi", allocated_cpu_millicores))
+
+    # Add totals to the data
+    data.append(("Somma Totale", "", f"{total_ram_gb}Gi", total_cpu_millicores))
+    data.append(("Somma Worker", "", f"{worker_ram_gb}Gi", worker_cpu_millicores))
 
     headers = "role,node,allocated_ram_gb,allocated_cpu_millicores"
     process_output(output_format, headers, data)
@@ -160,35 +176,47 @@ def get_resourcequotas(output_format):
 def get_top(output_format):
     logging.info("Fetching top metrics")
     roles = get_node_roles()
-    output = run_command("kubectl get nodes.metrics.k8s.io -o json")
-    nodes = json.loads(output)
+    node_output = run_command("kubectl get nodes -o json")
+    metric_output = run_command("kubectl get nodes.metrics.k8s.io -o json")
+
+    nodes = json.loads(node_output)
+    metrics = json.loads(metric_output)
     data = []
     total_ram, total_cpu, worker_ram, worker_cpu = 0, 0, 0, 0
     worker_count = 0
 
-    for item in nodes['items']:
-        node = item['metadata']['name']
-        cpu = int(item['usage']['cpu'].rstrip('n')) // 1000000
-        ram = int(item['usage']['memory'].rstrip('Ki')) // 1024
-        role = roles.get(node, "Unknown")
+    for item in metrics['items']:
+        node_name = item['metadata']['name']
+        cpu_usage_m = int(item['usage']['cpu'].rstrip('n')) // 1000000
+        ram_usage_mi = int(item['usage']['memory'].rstrip('Ki')) // 1024
+        role = roles.get(node_name, "Unknown")
+        
+        # Find corresponding node capacity
+        node_capacity = next(node for node in nodes['items'] if node['metadata']['name'] == node_name)
+        cpu_capacity = int(node_capacity['status']['capacity']['cpu'])
+        ram_capacity_mi = int(node_capacity['status']['capacity']['memory'].rstrip('Ki')) // 1024
 
-        data.append((role, node, f"{ram}Mi", f"{cpu}m"))
-        total_ram += ram
-        total_cpu += cpu
+        # Calculate percentage
+        cpu_percent = (cpu_usage_m / (cpu_capacity * 1000)) * 100
+        ram_percent = (ram_usage_mi / ram_capacity_mi) * 100
+
+        data.append((role, node_name, f"{ram_usage_mi}Mi", f"{ram_percent:.0f}", f"{cpu_usage_m}m", f"{cpu_percent:.0f}"))
+        total_ram += ram_usage_mi
+        total_cpu += cpu_usage_m
 
         if role == "Worker":
-            worker_ram += ram
-            worker_cpu += cpu
+            worker_ram += ram_usage_mi
+            worker_cpu += cpu_usage_m
             worker_count += 1
 
-    node_count = len(nodes['items'])
     total_ram_gb = total_ram // 1024
     worker_ram_gb = worker_ram // 1024
 
-    data.append(("Somma Totale", "", f"{total_ram_gb}Gi", f"{total_cpu}m"))
-    data.append(("Somma Worker", "", f"{worker_ram_gb}Gi", f"{worker_cpu}m"))
+    # Add totals as the final rows
+    data.append(("Somma Totale", "", f"{total_ram_gb} GB", "", f"{total_cpu}m", ""))
+    data.append(("Somma Worker", "", f"{worker_ram_gb} GB", "", f"{worker_cpu}m", ""))
 
-    headers = "role,node,ram_mi,cpu_m"
+    headers = "Ruolo,Nodo,Ram,Ram %,Cpu,Cpu %"
     process_output(output_format, headers, data)
 
 def get_persistent_volumes(output_format):
@@ -324,3 +352,6 @@ if __name__ == "__main__":
     else:
         print_usage()
         sys.exit(1)
+
+
+# resourcequotas somme totali e cpu in core

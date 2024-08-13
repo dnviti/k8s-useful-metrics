@@ -1,30 +1,31 @@
-# Kubernetes NFS Storage Usage Script
+# Kubernetes Resource Management Script
 
-This script is designed to interact with your Kubernetes cluster to gather and analyze resource information, particularly focused on nodes, resource quotas, and persistent volumes. It also has the capability to check NFS storage usage based on Persistent Volume (PV) configurations.
+This script is designed to interact with your Kubernetes cluster, providing detailed information and analysis of nodes, resource quotas, persistent volumes, and NFS storage usage. It is a versatile tool for Kubernetes administrators, offering multiple output formats and customization options.
 
-## What Does the Script Do?
+## Features
 
-- **Node Analysis**: Retrieves and displays information about nodes in your Kubernetes cluster, including their roles, CPU, and RAM capacity.
+- **Node Analysis**: Retrieves comprehensive details about nodes in your Kubernetes cluster, including roles, CPU, and RAM capacity.
 - **Resource Quota Analysis**: Aggregates and reports on resource requests (CPU and memory) across all pods in the cluster.
-- **Top Metrics**: Provides a summary of current CPU and memory usage for each node using Kubernetes metrics.
-- **Persistent Volume Analysis**: Lists all Persistent Volume Claims (PVCs) and their associated NFS paths.
-- **NFS Storage Usage Check**: Mounts each unique NFS path as specified by the Persistent Volumes, checks the storage usage, and then unmounts it. The depth of the mount can be controlled by a parameter, allowing you to check root or sub-directory usage.
+- **Top Metrics**: Provides real-time CPU and memory usage statistics for each node using Kubernetes metrics.
+- **Persistent Volume Analysis**: Lists all Persistent Volume Claims (PVCs) along with their associated NFS paths.
+- **NFS Storage Usage Check**: Mounts each unique NFS path as specified by Persistent Volumes, checks the storage usage, and then unmounts it. The depth of the mount can be controlled by a parameter, allowing you to check root or sub-directory usage.
 
 ## Usage
 
 ### General Command Structure
 
 ```bash
-python script.py --task <task-name> --output <format> [--context <context-name>] [--nfs-level <level>] [--debug <level>]
+python script.py --task <task-name> --output <format> [--context <context-name>] [--nfs-level <level>] [--debug <level>] [--parameter <key=value>]
 ```
 
 ### Tasks
 
-- `get-nodes`: Fetches details of nodes in the cluster.
+- `get-nodes`: Fetches detailed information about the nodes in the cluster.
 - `get-resourcequotas`: Summarizes resource quotas based on pod resource requests.
-- `get-top`: Provides a summary of current CPU and memory usage for each node.
+- `get-top`: Provides a real-time summary of CPU and memory usage for each node.
 - `get-pvcs`: Lists all PVCs and their NFS paths.
 - `check-nfs`: Mounts NFS paths based on PV configurations and checks storage usage.
+- `get-k8s-info`: Retrieves and summarizes basic Kubernetes cluster information, including Kubernetes version, node count, and namespace count.
 
 ### Output Formats
 
@@ -35,8 +36,9 @@ python script.py --task <task-name> --output <format> [--context <context-name>]
 ### Parameters
 
 - `--context | -c <context-name>`: (Optional) Specify the Kubernetes context to use. If not provided, the current context is used.
-- `--nfs-level | -l <level>`: (Optional, for `check-nfs` task) Set how deep to mount the NFS directory. Default is `0`, meaning the root directory will be mounted.
-- `--debug | -d <level>`: (Optional) Set the logging level. Available options: `ERROR`, `WARN`, `INFO`, `DEBUG`. Default is `ERROR`.
+- `--nfs-level | -l <level>`: (Optional, for `check-nfs` task) Sets how deep to mount the NFS directory. Default is `0`, meaning the root directory will be mounted.
+- `--debug | -d <level>`: (Optional) Sets the logging level. Available options: `ERROR`, `WARN`, `INFO`, `DEBUG`. Default is `ERROR`.
+- `--parameter | -p <key=value>`: (Optional, for `get-k8s-info` task) Passes custom parameters to include in the output.
 
 ### Examples
 
@@ -88,6 +90,14 @@ python script.py --task check-nfs --output yaml --nfs-level 1 --debug WARN
 
 This command mounts each NFS path one level deep, checks storage usage, and outputs the results in YAML format. Warnings and errors during execution are logged.
 
+#### 7. Get Kubernetes Cluster Info with Custom Parameters
+
+```bash
+python script.py --task get-k8s-info --output json --parameter "Environment=Production" --parameter "Owner=DevOps"
+```
+
+This command retrieves basic Kubernetes cluster information and includes custom parameters in the output, formatted in JSON.
+
 ## Logging
 
 The script offers multiple levels of logging to help you monitor its execution:
@@ -98,7 +108,3 @@ The script offers multiple levels of logging to help you monitor its execution:
 - **DEBUG**: Logs detailed debug information, including command executions and outputs.
 
 The default logging level is `ERROR`, which can be adjusted with the `--debug` or `-d` parameter.
-
----
-
-This script is a powerful tool for managing and analyzing your Kubernetes cluster, especially for checking NFS storage usage. By adjusting parameters, you can customize its operation to suit your environment and needs.

@@ -225,13 +225,32 @@ def get_top(output_format):
         for item in metrics['items']:
             node_name = item['metadata']['name']
             cpu_usage_m = int(item['usage']['cpu'].rstrip('n')) // 1000000
-            ram_usage_mi = int(item['usage']['memory'].rstrip('Ki')) // 1024
+            ram_usage_mi = 0
+            
+            if item['usage']['memory'].endswith('Ki'):
+                ram_usage_mi = int(item['usage']['memory'].rstrip('Ki')) // 1024
+            elif item['usage']['memory'].endswith('Mi'):
+                ram_usage_mi = int(item['usage']['memory'].rstrip('Mi'))
+            elif item['usage']['memory'].endswith('Gi'):
+                ram_usage_mi = int(item['usage']['memory'].rstrip('Gi')) * 1024
+            else:
+                ram_usage_mi = 0
+                
             role = roles.get(node_name, "Unknown")
             
             # Find corresponding node capacity
             node_capacity = next(node for node in nodes['items'] if node['metadata']['name'] == node_name)
             cpu_capacity = int(node_capacity['status']['capacity']['cpu'])
-            ram_capacity_mi = int(node_capacity['status']['capacity']['memory'].rstrip('Ki')) // 1024
+            ram_capacity_mi = 0
+            
+            if node_capacity['status']['capacity']['memory'].endswith('Ki'):
+                ram_capacity_mi = int(node_capacity['status']['capacity']['memory'].rstrip('Ki')) // 1024
+            elif node_capacity['status']['capacity']['memory'].endswith('Mi'):
+                ram_capacity_mi = int(node_capacity['status']['capacity']['memory'].rstrip('Mi'))
+            elif node_capacity['status']['capacity']['memory'].endswith('Gi'):
+                ram_capacity_mi = int(node_capacity['status']['capacity']['memory'].rstrip('Gi')) * 1024
+            else:
+                ram_capacity_mi = 0
 
             # Calculate percentage
             cpu_percent = (cpu_usage_m / (cpu_capacity * 1000)) * 100

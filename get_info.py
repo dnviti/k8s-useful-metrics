@@ -164,6 +164,10 @@ def get_resourcequotas(output_format):
         worker_cpu_millicores, worker_ram_gb = 0, 0
 
         for item in pods['items']:
+            
+            if "nodeName" not in item['spec']:
+                continue
+            
             node = item['spec']['nodeName']
             for container in item['spec']['containers']:
                 if 'resources' in container and 'requests' in container['resources']:
